@@ -5,7 +5,8 @@ import httpx
 from app.main import app
 
 
-def test_health_reports_not_ready_until_index_exists():
+def test_health_reports_not_ready_until_index_exists(monkeypatch, tmp_path):
+    monkeypatch.setenv("INDEX_ROOT", str(tmp_path))
     async def request_health():
         transport = httpx.ASGITransport(app=app)
         async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
