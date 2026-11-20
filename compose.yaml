@@ -1,0 +1,21 @@
+name: darglobal-chatbot
+
+services:
+  app:
+    build:
+      context: .
+    restart: unless-stopped
+    env_file:
+      - ./backend/.env
+    ports:
+      - "127.0.0.1:${CHATBOT_PORT:-8085}:8000"
+    volumes:
+      - type: bind
+        source: ${INDEX_PATH:-./data/index}
+        target: /app/data/index
+        bind:
+          create_host_path: false
+      - model-cache:/home/chatbot/.cache/huggingface
+
+volumes:
+  model-cache:

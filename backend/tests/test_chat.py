@@ -1,4 +1,5 @@
 import json
+from unittest.mock import Mock
 
 import httpx
 import pytest
@@ -47,10 +48,121 @@ def test_chat_streams_sources_and_groq_answer(client, monkeypatch):
     ]
 
 
+@pytest.mark.parametrize("configured_model,expected_model,reasoning", [
+    ("gpt-oss-20b", "openai/gpt-oss-20b", True),
+    ("openai/gpt-oss-20b", "openai/gpt-oss-20b", True),
+    ("llama-3.1-8b-instant", "llama-3.1-8b-instant", False),
+])
+def test_groq_model_configuration(client, monkeypatch, configured_model, expected_model, reasoning):
+    monkeypatch.setenv("GROQ_MODEL", configured_model)
+    monkeypatch.setattr("app.api.chat.retrieve", lambda message: ([], [{"source_id": "S1", "text": "evidence"}]))
+    original_client = httpx.AsyncClient
+
+    def upstream(request):
+        body = json.loads(request.content)
+        assert body["model"] == expected_model
+        if reasoning:
+            assert body["reasoning_format"] == "hidden"
+            assert body["reasoning_effort"] == "low"
+        else:
+            assert "reasoning_format" not in body
+        return httpx.Response(200, text='data: {"choices":[{"delta":{"content":"Hello"}}]}\n\ndata: [DONE]\n\n')
+
+    monkeypatch.setattr(chat_service.httpx, "AsyncClient", lambda **kwargs: original_client(
+        transport=httpx.MockTransport(upstream), **kwargs
+    ))
+    response = client.post("/api/chat", json={"message": "Question"})
+    assert parse_events(response.text)[-1] == ("done", {"status": "complete"})
+
+
+@pytest.mark.parametrize("status,expected", [
+    (401, "authentication"),
+    (404, "configured model"),
+    (429, "rate limit"),
+])
+def test_provider_status_is_reported_without_leaking_details(client, monkeypatch, status, expected, caplog):
+    monkeypatch.setattr("app.api.chat.retrieve", lambda message: ([], [{"source_id": "S1", "text": "evidence"}]))
+    original_client = httpx.AsyncClient
+    monkeypatch.setattr(chat_service.httpx, "AsyncClient", lambda **kwargs: original_client(
+        transport=httpx.MockTransport(lambda request: httpx.Response(status, text="sensitive provider response")), **kwargs
+    ))
+    response = client.post("/api/chat", json={"message": "Question"})
+    events = parse_events(response.text)
+    assert expected in events[-1][1]["message"]
+    assert "sensitive provider response" not in response.text
+    assert "sensitive provider response" not in caplog.text
+    assert "test-key" not in caplog.text
+
+
+def test_startup_loads_store_and_shutdown_clears_cache(monkeypatch):
+    store = Mock()
+    monkeypatch.setattr("app.main.vector_store", store)
+    with TestClient(app):
+        store.assert_called_once_with()
+        store.cache_clear.assert_not_called()
+    store.cache_clear.assert_called_once_with()
+
+
+def test_startup_fails_when_store_cannot_load(monkeypatch):
+    store = Mock(side_effect=RuntimeError("index unavailable"))
+    monkeypatch.setattr("app.main.vector_store", store)
+    with pytest.raises(RuntimeError, match="index unavailable"):
+        with TestClient(app):
+            pytest.fail("Startup must not succeed without the index.")
+
+
 def test_chat_no_evidence_does_not_call_groq(client, monkeypatch):
     monkeypatch.setattr("app.api.chat.retrieve", lambda message: ([], []))
     response = client.post("/api/chat", json={"message": "Question"})
     assert [name for name, _ in parse_events(response.text)] == ["sources", "delta", "done"]
+
+
+@pytest.mark.parametrize("message, expected", [
+    ("Hi!", "Hello! How can I help you explore DarGlobal or Wasalt?"),
+    ("مرحبا", "مرحباً! كيف يمكنني مساعدتك في استكشاف دار جلوبال أو وصلت؟"),
+])
+def test_greetings_do_not_retrieve_irrelevant_sources(client, monkeypatch, message, expected):
+    def fail(_message):
+        pytest.fail("A greeting must not retrieve documents.")
+
+    monkeypatch.setattr("app.api.chat.retrieve", fail)
+    monkeypatch.delenv("GROQ_API_KEY")
+    response = client.post("/api/chat", json={"message": message})
+    assert parse_events(response.text) == [
+        ("sources", {"sources": []}),
+        ("delta", {"text": expected}),
+        ("done", {"status": "complete"}),
+    ]
+
+
+@pytest.mark.parametrize("message, expected", [
+    ("What is this property?", "I could not find relevant information in the indexed data."),
+    ("ما هي هذه العقارات؟", "لم أجد معلومات ذات صلة في البيانات المتاحة."),
+])
+def test_no_evidence_message_uses_question_language(client, monkeypatch, message, expected):
+    monkeypatch.setattr("app.api.chat.retrieve", lambda _message: ([], []))
+    response = client.post("/api/chat", json={"message": message})
+    assert parse_events(response.text)[1] == ("delta", {"text": expected})
+
+
+def test_language_instruction_is_sent_with_arabic_evidence(client, monkeypatch):
+    monkeypatch.setattr("app.api.chat.retrieve", lambda message: ([], [{"source_id": "S1", "text": "فيلا للبيع"}]))
+    original_client = httpx.AsyncClient
+
+    def upstream(request):
+        body = json.loads(request.content)
+        prompt = body["messages"][0]["content"]
+        assert "Respond in English by default" in prompt
+        assert "current question is in Arabic" in prompt
+        assert "translate Arabic evidence into English" in prompt
+        assert json.loads(body["messages"][-1]["content"])["evidence"][0]["text"] == "فيلا للبيع"
+        return httpx.Response(200, text='data: {"choices":[{"delta":{"content":"A villa for sale [S1]."}}]}\n\ndata: [DONE]\n\n')
+
+    monkeypatch.setattr(chat_service.httpx, "AsyncClient", lambda **kwargs: original_client(
+        transport=httpx.MockTransport(upstream), **kwargs
+    ))
+    response = client.post("/api/chat", json={"message": "What property is this?"})
+    assert parse_events(response.text)[1] == ("delta", {"text": "A villa for sale [S1]."})
 
 
 @pytest.mark.parametrize("body", [

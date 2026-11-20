@@ -1,6 +1,6 @@
 # DarGlobal and Wasalt Chatbot
 
-React frontend skeleton, local data-cleaning aur index-building pipeline, aur Groq ke saath FastAPI streaming chat backend. React chat UI abhi implement nahi hui.
+React chat UI, local data-cleaning aur index-building pipeline, aur Groq ke saath FastAPI streaming chat backend.
 
 ## Requirements
 
@@ -43,18 +43,21 @@ npm install
 npm run dev
 ```
 
-Vite ke terminal mein dikhaya gaya local URL kholein. Page backend connectivity status dikhata hai. Development proxy `/api` requests ko `127.0.0.1:8000` par bhejta hai.
+Vite ke terminal mein dikhaya gaya local URL kholein. Chat mein suggested questions ya apna message bhej sakte hain; Enter send karta hai aur Shift+Enter se nayi line banti hai. Stream ke dauran Stop, New conversation aur source links available hain. Arabic aur doosra RTL text automatic direction ke saath dikhta hai. Conversation sirf current page session mein rehti hai, refresh par clear hoti hai.
+
+Page index health dikhata hai; green status Groq key ya model availability ki guarantee nahi. Backend startup par embedding model aur index load karta hai, is liye server ready hone mein waqt lag sakta hai. Development proxy `/api` requests ko `127.0.0.1:8000` par bhejta hai.
 
 Production build aur lint:
 
 ```powershell
 npm run build
 npm run lint
+npm run test
 ```
 
 ## Secrets aur data
 
-`.env.example` mein Groq key ka empty placeholder hai. Real keys commit ya frontend mein expose na karein. Docker setup aur testing user baad mein khud karega.
+`.env.example` mein Groq key ka empty placeholder hai. Real keys commit ya frontend mein expose na karein. Docker setup neeche hai; Docker build aur run user khud karega.
 
 ## Groq chat API
 
@@ -69,6 +72,8 @@ GROQ_MODEL=llama-3.1-8b-instant
 
 `POST /api/chat` JSON leta hai: `{"message":"What is AIDA 360?","history":[]}`. History optional hai, maximum 10 `user`/`assistant` messages; message aur har history item maximum 2,000 characters, combined maximum 12,000 characters hain. Response `text/event-stream` hai: `sources`, ek ya zyada `delta`, phir `done`. Streaming ke dauran provider fail ho to `error` event aata hai, `done` nahi. Missing key ya unavailable index par HTTP 503; invalid input par HTTP 422 milta hai.
 
+Simple English aur Arabic greetings bina search ke handle hote hain. Doosre sawalon ke liye model ko English by default aur Arabic sawal ka jawab Arabic mein dene ki instruction hai, chahe evidence kisi aur language mein ho. LLM ka instruction follow karna guaranteed nahi; Arabic script ki pehchan no-evidence message ke liye heuristic hai aur Urdu jaisi languages bhi Arabic script use karti hain.
+
 Local test, backend run hone ke baad:
 
 ```powershell
@@ -77,7 +82,7 @@ $response = Invoke-WebRequest -Uri http://127.0.0.1:8000/api/chat -Method Post -
 $response.Content
 ```
 
-PowerShell yahan poora response buffer kar sakta hai; future React UI SSE events stream karegi. API ko `/docs` par bhi dekha ja sakta hai. Pehli request par local embedding model load hota hai aur waqt lag sakta hai; restart ke baad index/model phir load honge.
+PowerShell yahan poora response buffer kar sakta hai; React UI SSE events stream karti hai. API ko `/docs` par bhi dekha ja sakta hai. Backend startup par local embedding model load hota hai aur waqt lag sakta hai; restart ke baad index/model phir load honge.
 
 Chat request mein user message, history aur retrieved snippets **Groq ko bheje jate hain**. Public use se pehle unka data-use authorization aur privacy review confirm karein. Assignment email ne specifically OpenRouter free model manga tha; direct Groq use accept hone ki tasdeeq hiring team se karein.
 
@@ -136,3 +141,43 @@ Existing index ko verify aur sample retrieval check karne ke liye:
 Yeh sample checks actual full chatbot evaluation ka substitute nahi. Current index par English se Arabic listing ka sample unfiltered top 10 mein fail hota hai, is liye command nonzero exit code deti hai aur Phase 3 ka retrieval exit criterion abhi poora nahi hua. Ek local experiment mein city, purpose aur area manually filter karne ke baad expected listing four candidates mein first aayi; natural-language filter extraction aur automatic search abhi implement nahi huay. Unrelated query par semantic search hamesha nearest results de sakti hai; no-evidence decision aur threshold Phase 4 mein implement aur test karne hain. Listing prices abhi unknown hain.
 
 `INDEX_ROOT` environment variable se index folder change kiya ja sakta hai. Index aur SQLite artifacts `data/` ki tarah Git se ignored hain. LLM API ya public deployment se pehle data-use permissions aur privacy review zaroor karein.
+
+## Docker aur Hostinger VPS preparation
+
+Dockerfile React ko build karta hai aur FastAPI usi image se frontend aur `/api` serve karti hai. Compose project ka naam `darglobal-chatbot` hai. Default par sirf host ke `127.0.0.1:8085` par bind hota hai; existing app ke containers, ports aur proxy config modify nahi karta. Port 8085 agar busy ho to project root ki ignored `.env` mein `CHATBOT_PORT=8086` likhein ya shell environment mein set karein. Yeh backend ki secret `backend/.env` se alag file hai.
+
+**Zaroori:** Yeh Docker-capable Linux VPS ke liye hai; shared hosting ya managed plan par Docker access ki guarantee nahi. Container memory aur disk requirements verify karein: local indexing ke dauran peak working set lagbhag 1.5 GiB tha, lekin container production requirements abhi measure nahi hui. Ek hi worker aur index ka ek hi owner rakhein.
+
+### Git aur server par kya transfer karna hai
+
+- Source Git se clone hoga, lekin `backend/.env` aur `data/index` Git aur Docker build context dono se excluded hain. Secrets aur index image mein bake nahi hote.
+- Server par `backend/.env` khud banayein: `.env.example` copy karke `GROQ_API_KEY` aur `GROQ_MODEL` set karein. Key ko private rakhein aur restrictive file permissions dein. `GROQ_MODEL=openai/gpt-oss-20b` bhi use kar sakte hain. Chat mein expose hui purani key revoke karke nayi key use karein.
+- Local complete `data/index` folder securely server ke project ke `data/index` mein transfer karein: `current.json` **aur** us ke referenced `versions/<build-id>` folder mein `manifest.json`, poora `chroma` aur `listings.sqlite3` required hain. Sirf `chroma` copy na karein. Copy se pehle index build aur app band rakhein taake consistent snapshot ho. User authorization/privacy review ke baghair scraped data ya index public jagah upload na karein.
+- Bind mount ke liye directory pehle se honi chahiye. Container non-root UID `10001` se chalta hai aur Chroma ko index directory mein read/write permissions chahiye. Linux server par apne project directory se zarurat par `sudo chown -R 10001:10001 ./data/index` karein; doosri app ki files na badlein. Windows-built Chroma index ka Linux par compatibility aur permissions actual container test se verify karna zaroori hai; agar open na ho to authorized source data se Linux par index rebuild karein.
+- Embedding model pehle startup par Hugging Face se download hota hai. Named Docker volume us model cache ko restart/recreate ke baad preserve karta hai; pehli startup par internet aur extra time/disk chahiye. Is volume ko `docker compose down -v` se delete na karein jab tak cache deliberately remove na karna ho. Index alag host bind mount mein hai; us ka private backup rakhein. Rebuild/update ke waqt app stop rakhein, complete verified index replace karein, phir app restart karein.
+
+Misal ke taur par, agar repository VPS par `~/darglobal-chatbot` mein clone ki hai, pehle VPS terminal mein `mkdir -p ~/darglobal-chatbot/data` chalayein. Phir Windows PowerShell mein project root se neeche command mein `VPS_USER` aur `VPS_HOST` apni details se replace karke snapshot bhejein:
+
+```powershell
+scp -r .\data\index VPS_USER@VPS_HOST:~/darglobal-chatbot/data/
+```
+
+Server par project root se `cp .env.example backend/.env` karke file private editor mein configure karein aur `chmod 600 backend/.env` chalayein. GitHub ya chat mein key na likhein.
+
+### Run aur verify — user ke liye
+
+Project root par Docker aur Compose plugin installed hon, `backend/.env` aur `data/index` ready hon:
+
+```powershell
+cd D:\DarGlobal\Chatbot
+docker compose config --quiet
+docker compose up -d --build
+docker compose ps
+docker compose logs --tail 100 app
+```
+
+Server par bhi yahi `docker compose` commands project root mein chalengi. Pehle model download/startup complete hone dein. Us machine par `http://127.0.0.1:8085/` aur `http://127.0.0.1:8085/api/health` check karein; localhost binding ki wajah se remote browser se yeh directly open nahi hoga. Local testing ke liye SSH port forwarding ya public deployment ke liye apne existing reverse proxy par **alag hostname** configure karein. User ke `/api/chat` test mein streaming answer aur source links, phir `docker compose restart app` ke baad health/chat dobara verify karein. Health sirf index readiness hai, Groq availability nahi.
+
+Reverse proxy ko alag hostname se `http://127.0.0.1:8085` tak forward karein, TLS enable karein, aur chat streaming ke liye response buffering off aur suitable read timeout rakhein. Existing site ka server block ya ports replace na karein. Agar proxy bhi Docker container mein hai, us ka `127.0.0.1` host nahi hota: usay host tak pahunch dene ke liye environment-specific networking configure karein. DNS, TLS aur proxy actual server par separately verify karne honge. Is app mein abhi authentication/rate limiting nahi; internet par expose karne se pehle suitable protections lagayein.
+
+Docker image build/run, Linux index portability, Hostinger network/proxy aur live deployment abhi verify nahi huay.

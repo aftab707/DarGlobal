@@ -223,3 +223,58 @@ User ne waqt ki kami ki wajah se pehle FastAPI backend aur Groq API mangi; React
 - Real Groq key ya live provider call test nahi ki; model availability, quota, latency aur actual answers user ki key se verify honge.
 - Source filtering aur model instructions low-relevance detection ki guarantee nahi hain. Calibrated no-evidence decision, SQLite structured filters, reliable follow-up retrieval, auth aur rate limiting abhi nahi bane. Phase 3 ka English-to-Arabic failure bhi unresolved hai; full Phase 4/5 complete nahi.
 - Frontend chat UI aur Docker run/build is step mein nahi kiye.
+
+## React chat interface
+
+- Status: Implemented; live Groq response user ki key ke saath abhi verify nahi hui.
+
+### Kyun
+
+User ko DarGlobal assessment ke liye ek responsive aur interactive interface chahiye tha jahan woh existing backend chatbot se baat kar sake.
+
+### Kaise
+
+- Existing React/Vite app ko replace karke DarGlobal-inspired chat interface banaya: suggested questions, message input, streamed answers, sources, stop aur new conversation controls.
+- `POST /api/chat` ki SSE stream ko chunk boundaries ke across parse kiya. Backend/provider error, interrupted stream aur user stop ko visible rakha; incomplete answers history mein nahi bheje jate.
+- Source links ka protocol aur domain check hota hai; React text ko plain text render karta hai. Arabic/RTL text `dir=auto` se show hota hai. Source information snapshot hai, live availability nahi.
+- Previous complete conversation ka bounded history backend ko bhejte hain; refresh par history clear hoti hai. Index health status Groq ki availability guarantee nahi karta.
+
+### Kahan
+
+- `frontend/src/App.jsx`, `frontend/src/App.css`, `frontend/src/index.css`: chat behavior, responsive layout aur styling.
+- `frontend/src/chatStream.js`, `frontend/src/chatStream.test.js`: SSE parsing, safe source links aur focused tests.
+- `frontend/index.html`, `frontend/package.json`, `README.md`: page details, test command aur local usage.
+
+### Verification aur limitations
+
+- Frontend ke 4 stream tests, ESLint aur production build pass huay. Browser mein desktop aur 375px mobile layout, mock streaming reply, source link, follow-up history, error, stop aur new conversation check kiye.
+- Browser test mein provider mocked tha; user ki key, live Groq response aur deployed URL test nahi kiye. Backend ke existing retrieval limitations aur data-use/privacy review ab bhi apply hote hain.
+- Docker start/build/run nahi kiya.
+
+## Docker deployment ki tayyari
+
+- Status: Configuration tayyar; Docker build/run aur Hostinger deployment abhi verify nahi huay.
+
+### Kyun
+
+User ne Git par push se pehle container setup manga aur bataya ke Hostinger par pehle se doosri app hai. Is app ko alag project aur port par chalana zaroori hai.
+
+### Kaise
+
+- Multi-stage image mein React build hota hai aur non-root FastAPI process frontend aur API same origin se serve karta hai. SPA fallback unknown `/api` routes ko mask nahi karta.
+- Compose project `darglobal-chatbot` ka default port host ke sirf `127.0.0.1:8085` par hai; doosri app ki configuration change nahi ki. Reverse proxy ke liye alag hostname aur SSE buffering off rakhne ki guidance di.
+- Index aur SQLite image/Git mein nahi: poora index host bind mount se aata hai. Model cache alag named volume mein rehta hai; pehli startup par model download hota hai. `.env` build context se exclude hai.
+- User ki pichhli language request ke mutabiq simple greetings bina retrieval ke handle hoti hain aur model ko English question par English answer ki instruction di gayi, source Arabic ho tab bhi. Arabic question ke liye Arabic instruction aur no-evidence message add hua; LLM language behavior guaranteed nahi.
+
+### Kahan
+
+- `Dockerfile`, `compose.yaml`, `.dockerignore`: image, separate service/port, index mount aur secret exclusions.
+- `backend/app/frontend.py`, `backend/app/main.py`, `backend/tests/test_frontend.py`: frontend serving aur API route separation.
+- `backend/app/api/chat.py`, `backend/app/services/chat.py`, `backend/tests/test_chat.py`: language aur greetings; pichhle Groq/startup changes bhi isi working tree mein hain.
+- `README.md`: Docker commands, index transfer, permissions, model cache aur VPS/proxy limitations.
+
+### Verification aur limitations
+
+- `docker compose config --quiet` pass hua; Docker engine start nahi kiya aur image build/run nahi ki.
+- Frontend serving ka focused test pass: static assets, SPA fallback, existing API aur unknown API 404 check huay. Language/greeting changes ke automated tests is step mein run nahi kiye; pehle backend test commands ki permission decline hui thi. User ne bataya tha ke bot chal raha hai, lekin in naye language changes ka live Groq test nahi hua.
+- Windows se Linux Chroma portability, actual Docker image, available disk/memory, container health, HTTPS aur existing proxy integration user ko verify karni hai. Public use se pehle data permission/privacy aur API protection review zaroori hai.
