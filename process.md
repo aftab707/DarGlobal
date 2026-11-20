@@ -193,3 +193,33 @@ Cleaned documents ko searchable banane, Arabic aur English queries support karne
 ### Blocker aur agla kaam
 
 Phase 3 ko complete mark nahi kiya: roadmap ke mutabiq retrieval tests pass hone chahiye aur English-to-Arabic sample abhi fail hai. Agla kaam structured filtering ya doosri retrieval improvements ko proper query handling aur tests ke saath implement karke isi failing case ko dobara verify karna hai; manually supplied filter ko finished chatbot behavior na samjhein.
+
+## Backend chat API: user ki Groq request
+
+- Status: Initial backend implemented; real Groq response aur full Phase 4/5 validation abhi baqi.
+
+### Kyun
+
+User ne waqt ki kami ki wajah se pehle FastAPI backend aur Groq API mangi; React chatbot baad mein banana hai. User ne English-to-Arabic failed case abhi chhorne ko kaha, is liye usay solved claim nahi kiya.
+
+### Kaise
+
+- `POST /api/chat` current message se local Chroma mein relevant chunks retrieve karta hai. Existing fixed multilingual embedding model first request par load hota hai aur process mein reuse hota hai. Valid source links aur limited duplicate chunks context mein jate hain.
+- Groq ki API key server-side `backend/.env` ya OS environment se li jati hai. Default model `llama-3.1-8b-instant` hai aur `GROQ_MODEL` se badla ja sakta hai. Key frontend ya source code mein nahi rakhi.
+- JSON request aur history bounded hain. API `sources`, `delta` aur `done` SSE events deti hai; provider error ya incomplete stream par `error` deti hai. Index/key missing aur invalid input par explicit HTTP errors milte hain.
+- Prompt model ko sirf evidence use karne, source IDs dene, missing information batane aur scraped instructions ignore karne ko kehta hai. Citations aur grounding ki correctness automatically guaranteed nahi.
+- Groq ko user message, history aur retrieved snippets jate hain. Public use se pehle data-use permissions aur privacy confirm karna zaroori hai. Assignment mein OpenRouter specifically tha; Groq accept hone ki hiring team se tasdeeq zaroori hai.
+
+### Kahan
+
+- `backend/app/api/chat.py`, `backend/app/schemas/chat.py`: endpoint, SSE aur request validation.
+- `backend/app/services/chat.py`: Chroma retrieval, source validation aur Groq streaming.
+- `backend/app/core/config.py`, `backend/app/main.py`: environment loading aur route registration.
+- `backend/tests/test_chat.py`, `backend/requirements.txt`, `.env.example`, `README.md`: tests, dependency aur setup instructions.
+
+### Verification aur limitations
+
+- 33 backend tests aur `pip check` pass. Local actual index aur real embedding model ke saath chat endpoint test hua; Groq response network ke bajaye mocked tha. AIDA source mila aur health HTTP 200 tha.
+- Real Groq key ya live provider call test nahi ki; model availability, quota, latency aur actual answers user ki key se verify honge.
+- Source filtering aur model instructions low-relevance detection ki guarantee nahi hain. Calibrated no-evidence decision, SQLite structured filters, reliable follow-up retrieval, auth aur rate limiting abhi nahi bane. Phase 3 ka English-to-Arabic failure bhi unresolved hai; full Phase 4/5 complete nahi.
+- Frontend chat UI aur Docker run/build is step mein nahi kiye.

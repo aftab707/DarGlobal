@@ -1,6 +1,6 @@
 # DarGlobal and Wasalt Chatbot
 
-React aur FastAPI skeleton ke saath local data-cleaning aur index-building pipeline. Chatbot API abhi implement nahi hui.
+React frontend skeleton, local data-cleaning aur index-building pipeline, aur Groq ke saath FastAPI streaming chat backend. React chat UI abhi implement nahi hui.
 
 ## Requirements
 
@@ -54,7 +54,34 @@ npm run lint
 
 ## Secrets aur data
 
-`.env.example` mein sirf future OpenRouter key ka placeholder hai; app abhi usay read nahi karti. Real keys commit ya frontend mein expose na karein. Docker setup aur testing user baad mein khud karega.
+`.env.example` mein Groq key ka empty placeholder hai. Real keys commit ya frontend mein expose na karein. Docker setup aur testing user baad mein khud karega.
+
+## Groq chat API
+
+`backend/.env` file banayein aur apni key locally set karein; key chat ya GitHub par share na karein:
+
+```dotenv
+GROQ_API_KEY=your-key-here
+GROQ_MODEL=llama-3.1-8b-instant
+```
+
+`GROQ_MODEL` optional hai. OS environment variables `.env` se priority rakhte hain. File edit karne ke baad backend restart karein. `python-dotenv` aur baqi dependencies install karne ke liye `backend` folder mein `.\.venv\Scripts\python.exe -m pip install -r requirements.txt` chalayein, phir upar wali Uvicorn command se backend start karein.
+
+`POST /api/chat` JSON leta hai: `{"message":"What is AIDA 360?","history":[]}`. History optional hai, maximum 10 `user`/`assistant` messages; message aur har history item maximum 2,000 characters, combined maximum 12,000 characters hain. Response `text/event-stream` hai: `sources`, ek ya zyada `delta`, phir `done`. Streaming ke dauran provider fail ho to `error` event aata hai, `done` nahi. Missing key ya unavailable index par HTTP 503; invalid input par HTTP 422 milta hai.
+
+Local test, backend run hone ke baad:
+
+```powershell
+$body = @{ message = "What is AIDA 360?"; history = @() } | ConvertTo-Json -Depth 4
+$response = Invoke-WebRequest -Uri http://127.0.0.1:8000/api/chat -Method Post -ContentType "application/json" -Body $body
+$response.Content
+```
+
+PowerShell yahan poora response buffer kar sakta hai; future React UI SSE events stream karegi. API ko `/docs` par bhi dekha ja sakta hai. Pehli request par local embedding model load hota hai aur waqt lag sakta hai; restart ke baad index/model phir load honge.
+
+Chat request mein user message, history aur retrieved snippets **Groq ko bheje jate hain**. Public use se pehle unka data-use authorization aur privacy review confirm karein. Assignment email ne specifically OpenRouter free model manga tha; direct Groq use accept hone ki tasdeeq hiring team se karein.
+
+Yeh initial backend hai, production-ready retrieval nahi: SQLite listing filters aur calibrated low-relevance threshold abhi nahi bane, irrelevant nearest results aa sakte hain aur LLM citations/grounding guaranteed nahi. Purana English-to-Arabic sample bhi unresolved hai. History evidence nahi; follow-up retrieval sirf current message se hoti hai. Auth aur rate limiting abhi nahi, is liye public exposure se pehle protection zaroor add karein.
 
 ## Data cleaning aur audit
 
