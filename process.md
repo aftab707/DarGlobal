@@ -300,3 +300,25 @@ User ne bataya ke bot ke jawab mein `**bold**` aur headings plain text ki tarah 
 
 - Frontend ke 6 tests, lint aur production build pass huay. Mobile browser mein mocked streaming response par heading, bold aur list verify ki; horizontal overflow nahi tha.
 - Changes local hain. User ko Git push aur VPS par image rebuild karna hoga; live site par yeh update abhi deploy nahi ki.
+
+## English README aur installation guide
+
+### Kyun
+
+User ne README ko English mein step-by-step installation, Docker setup aur DarGlobal/Wasalt dataset ki information ke saath update karne ko kaha, taake koi naya developer project samajh aur install kar sake.
+
+### Kaise
+
+- Existing cleaning audit, input paths, index manifest, API, Docker configuration aur dependency requirements dekh kar English guide likhi. Source aur cleaned counts, indexing method, known retrieval/price limitations aur privacy requirements include kiye.
+- Windows local setup, existing index transfer ya source data se rebuild, Docker, Linux VPS, reverse proxy, tests aur troubleshooting explain kiye. Clear kiya ke clone ke saath index ya API key nahi milti.
+- User ne data private/local rakhne ka option choose kiya. Original data, cleaned output aur index ko Git mein include ya public upload nahi kiya.
+
+### Kahan
+
+- `README.md`: complete English documentation.
+- `process.md`: yeh Roman Urdu change log.
+
+### Verification
+
+- Document ke dataset counts local audit aur active index manifest se match kiye; setup details existing scripts, API aur Compose configuration se check kiye.
+- Sirf documentation update hui; Docker start/build/run ya live deployment change nahi kiya.
