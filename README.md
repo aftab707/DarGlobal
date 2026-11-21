@@ -43,7 +43,7 @@ npm install
 npm run dev
 ```
 
-Vite ke terminal mein dikhaya gaya local URL kholein. Chat mein suggested questions ya apna message bhej sakte hain; Enter send karta hai aur Shift+Enter se nayi line banti hai. Stream ke dauran Stop, New conversation aur source links available hain. Arabic aur doosra RTL text automatic direction ke saath dikhta hai. Conversation sirf current page session mein rehti hai, refresh par clear hoti hai.
+Vite ke terminal mein dikhaya gaya local URL kholein. Chat mein suggested questions ya apna message bhej sakte hain; Enter send karta hai aur Shift+Enter se nayi line banti hai. Stream ke dauran Stop, New conversation aur source links available hain. Assistant ke Markdown answers mein headings, bold, lists aur tables format hote hain; generated links sirf trusted source domains ke liye active hain. Arabic aur doosra RTL text automatic direction ke saath dikhta hai. Conversation sirf current page session mein rehti hai, refresh par clear hoti hai.
 
 Page index health dikhata hai; green status Groq key ya model availability ki guarantee nahi. Backend startup par embedding model aur index load karta hai, is liye server ready hone mein waqt lag sakta hai. Development proxy `/api` requests ko `127.0.0.1:8000` par bhejta hai.
 
@@ -65,7 +65,7 @@ npm run test
 
 ```dotenv
 GROQ_API_KEY=your-key-here
-GROQ_MODEL=llama-3.1-8b-instant
+GROQ_MODEL=openai/gpt-oss-20b
 ```
 
 `GROQ_MODEL` optional hai. OS environment variables `.env` se priority rakhte hain. File edit karne ke baad backend restart karein. `python-dotenv` aur baqi dependencies install karne ke liye `backend` folder mein `.\.venv\Scripts\python.exe -m pip install -r requirements.txt` chalayein, phir upar wali Uvicorn command se backend start karein.

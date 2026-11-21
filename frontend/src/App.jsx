@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import AssistantMarkdown from './AssistantMarkdown.js'
 import { readChatStream, safeSourceUrl } from './chatStream.js'
 import './App.css'
 
@@ -195,7 +196,7 @@ function App() {
                     <Mark small />
                     <div className="assistant-content">
                       <div className="message-label">DARGLOBAL ASSISTANT <span> · </span> AI</div>
-                      {turn.answer && <div className="answer-text" dir="auto">{turn.answer}</div>}
+                      {turn.answer && <div className="answer-text" dir="auto"><AssistantMarkdown text={turn.answer} /></div>}
                       {turn.status === 'streaming' && !turn.answer && <div className="thinking" role="status"><span /><span /><span /><span className="thinking-label">Finding an answer</span></div>}
                       {turn.error && <p className={`message-error${turn.status === 'stopped' ? ' message-error--stopped' : ''}`} role="status">{turn.error}</p>}
                       {turn.sources.length > 0 && (

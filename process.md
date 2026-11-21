@@ -278,3 +278,25 @@ User ne Git par push se pehle container setup manga aur bataya ke Hostinger par 
 - `docker compose config --quiet` pass hua; Docker engine start nahi kiya aur image build/run nahi ki.
 - Frontend serving ka focused test pass: static assets, SPA fallback, existing API aur unknown API 404 check huay. Language/greeting changes ke automated tests is step mein run nahi kiye; pehle backend test commands ki permission decline hui thi. User ne bataya tha ke bot chal raha hai, lekin in naye language changes ka live Groq test nahi hua.
 - Windows se Linux Chroma portability, actual Docker image, available disk/memory, container health, HTTPS aur existing proxy integration user ko verify karni hai. Public use se pehle data permission/privacy aur API protection review zaroori hai.
+
+## Assistant jawab ki formatting
+
+### Kyun
+
+User ne bataya ke bot ke jawab mein `**bold**` aur headings plain text ki tarah dikh rahe thay, jis se property details padhna mushkil tha.
+
+### Kaise
+
+- React mein `react-markdown` aur GFM support se assistant ke streamed answers ko headings, bold, lists aur tables ke saath render kiya. User messages aur original history text change nahi ki.
+- Generated links ke liye existing trusted-domain check reuse ki; untrusted links clickable nahi aur external images load nahi hoti. Raw HTML execute nahi hota.
+
+### Kahan
+
+- `frontend/src/AssistantMarkdown.js`, `frontend/src/App.jsx`, `frontend/src/App.css`: rendering aur formatting.
+- `frontend/src/AssistantMarkdown.test.js`, `frontend/package.json`, `frontend/package-lock.json`: tests aur dependencies.
+- `README.md`: frontend behavior.
+
+### Verification
+
+- Frontend ke 6 tests, lint aur production build pass huay. Mobile browser mein mocked streaming response par heading, bold aur list verify ki; horizontal overflow nahi tha.
+- Changes local hain. User ko Git push aur VPS par image rebuild karna hoga; live site par yeh update abhi deploy nahi ki.
